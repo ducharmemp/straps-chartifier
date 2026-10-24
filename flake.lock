@@ -1,0 +1,48 @@
+{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1792506237,
+        "narHash": "sha256-Q/8KLB6jNfpaUN1HAedE/u/Et9feE/zYSsutBLKrCFk=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "5adc50831c259f87faeb09ddf930d43597197473",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs",
+        "straps": "straps"
+      }
+    },
+    "straps": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792596636,
+        "narHash": "sha256-ELym+FASd2YesH3S0Lq4OZVZh7gRZppuKDt0iDmM4v0=",
+        "ref": "refs/heads/main",
+        "rev": "8c63dcc74683a7c731c596bbd892a367396499b9",
+        "revCount": 62,
+        "type": "git",
+        "url": "ssh://git@github.com/ducharmemp/straps"
+      },
+      "original": {
+        "type": "git",
+        "url": "ssh://git@github.com/ducharmemp/straps"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
