@@ -23,7 +23,9 @@ ast   │                  0 ms
 | `sparkline` | One row per series: `name ▁▃█▁ min..max`, scaled to the series' own range. | any number |
 | `histogram` | One series of raw samples, binned by the tool (`bins`, default 10), drawn as a bar chart of counts. | any number |
 
-Every kind takes the same input: `labels` (one per data point; histogram and scatter need none) and `series` (`{ name, values, x? }`, every `values` as long as `labels`; scatter's `x` as long as `values`). `title`, `unit`, `x_unit`, `sort` (`asc`/`desc` by the first series, or by the row total for the stacked kinds), `bins`, `width`, `height` and `split` are optional. Bad input comes back as a `show_chart: <reason>` string so the agent can correct it.
+Every kind takes the same input: `labels` (one per data point; histogram and scatter need none) and `series` (`{ name, values, x? }`, every `values` as long as `labels`; scatter's `x` as long as `values`). `title`, `unit`, `x_unit`, `sort` (`asc`/`desc` by the first series, or by the row total for the stacked kinds), `bins`, `width`, `height` and `split` are optional. `width` clamps to 20..`max_width` and `height` to 1..40; a clamped value appends `width clamped to N` or `height clamped to N` to the result. A drawn chart returns `opened a <kind> chart ...`; bad input comes back as a `show_chart: <reason>` string so the agent can correct it.
+
+A chart replaces the one shown in an existing `strapschart` window of the current tab; the first chart opens a new split.
 
 ## Install
 
@@ -42,18 +44,20 @@ With any other plugin manager, put this repository on the runtimepath after stra
 require("straps_chartifier").setup({})
 ```
 
-The order matters for the prompt section. straps composes the system prompt from `fn.system_prompt_layer.*` entries in registration order, so `register()` defines `fn.system_prompt_layer.chartifier` only once straps' own layers exist. The plugin file registers at load and again on `VimEnter`, which covers a straps whose `setup()` ran at startup; a straps loaded later needs the explicit `setup()` call. `require("straps_chartifier").status().prompt_layer` reports `registered`, `disabled by config.prompt_layer`, or `not registered: straps setup() has not run`.
+The order matters for the prompt section. straps composes the system prompt from `fn.system_prompt_layer.*` entries in registration order, so `register()` defines `fn.system_prompt_layer.chartifier` only once straps' own layers exist. The plugin file registers at load and again on `VimEnter`, which covers a straps whose `setup()` ran at startup; a straps loaded later needs the explicit `setup()` call. `setup()` warns with `straps_chartifier: <reason>` when registration is incomplete. `require("straps_chartifier").status().prompt_layer` reports `registered`, `disabled by config.prompt_layer`, or `not registered: straps setup() has not run`.
 
 `show_chart` carries `capability = "read"`, so straps' confirmation gate auto-allows it like `show_buffer`.
 
 ## Configuration
 
+`:help straps-chartifier` documents setup, tools and status. `:checkhealth straps_chartifier` reports registration without drawing. Setup rejects unknown keys and invalid types; numeric sizes must be integers (`max_width >= 20`, `height` 1–40, `max_bars >= 1`).
+
 Every key of `require("straps_chartifier").config` (`lua/straps_chartifier/init.lua`) can be passed to `setup()`:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `max_width` | `100` | Chart width cap in cells; `width` in a call clamps to it. |
-| `height` | `8` | Plot height in rows for `column` and `line` when the call passes none. |
+| `max_width` | `100` | Chart width cap in cells; `width` in a call clamps to it. A call without `width` draws at the chart window's text width, capped at `max_width`. |
+| `height` | `8` | Plot height in rows for `column`, `stacked_column`, `line` and `scatter` when the call passes none. |
 | `max_bars` | `60` | Label count cap; more is refused with a message asking the agent to aggregate. |
 | `highlight` | `true` | Place extmarks from the renderer's spans. |
 | `prompt_layer` | `true` | Emit the `# Charts` section; `false` makes the layer return nil. |

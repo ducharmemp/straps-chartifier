@@ -17,45 +17,50 @@ local TOOL_DOC = "Show the user numeric data as a chart in a scratch split besid
   .. " series or by the row total for stacked kinds; bins (optional, histogram) — bin count, default 10;"
   .. " width, height (optional) — cells; split (optional) — 'vertical' (default) or 'horizontal'. bar,"
   .. " stacked, column and stacked_column take values >= 0; diverging, line, scatter and sparkline take"
-  .. " any number. Returns a one-line confirmation, or 'show_chart: <reason>' when the input is rejected."
+  .. " any number. Returns 'opened a <kind> chart ...' on success, or 'show_chart: <reason>' when the input is"
+  .. " rejected."
 
-local TOOL_SCHEMA = {
-  type = "object",
-  properties = {
-    kind = {
-      type = "string",
-      enum = { "bar", "stacked", "diverging", "column", "stacked_column", "line", "scatter", "sparkline", "histogram" },
-      description = "Chart kind.",
-    },
-    title = { type = "string", description = "Title shown in the winbar and as the first line." },
-    labels = { type = "array", items = { type = "string" },
-      description = "One label per data point, in drawing order. Not used by histogram or scatter." },
-    series = {
-      type = "array",
-      items = {
-        type = "object",
-        properties = {
-          name = { type = "string", description = "Series name, printed in the legend." },
-          values = { type = "array", items = { type = "number" }, description = "One value per label." },
-          x = { type = "array", items = { type = "number" },
-            description = "scatter only: one x per value." },
-        },
-        required = { "values" },
+local function tool_schema(config)
+  return {
+    type = "object",
+    properties = {
+      kind = {
+        type = "string",
+        enum = { "bar", "stacked", "diverging", "column", "stacked_column", "line", "scatter", "sparkline", "histogram" },
+        description = "Chart kind.",
       },
-      description = "One or more series. Every values array must be as long as labels.",
+      title = { type = "string", description = "Title shown in the winbar and as the first line." },
+      labels = { type = "array", items = { type = "string" },
+        description = "One label per data point, in drawing order. Not used by histogram or scatter." },
+      series = {
+        type = "array",
+        items = {
+          type = "object",
+          properties = {
+            name = { type = "string", description = "Series name, printed in the legend." },
+            values = { type = "array", items = { type = "number" }, description = "One value per label." },
+            x = { type = "array", items = { type = "number" },
+              description = "scatter only: one x per value." },
+          },
+          required = { "values" },
+        },
+        description = "One or more series. Every values array must be as long as labels.",
+      },
+      unit = { type = "string", description = "Unit suffix for printed values, e.g. 'ms', 'KB', '%'." },
+      x_unit = { type = "string", description = "scatter only: unit suffix for the x axis ends." },
+      sort = { type = "string", enum = { "none", "asc", "desc" },
+        description = "Sort labels by the first series, or by the row total for stacked kinds;"
+          .. " not for histogram or scatter." },
+      bins = { type = "integer", description = "Histogram bin count (default 10)." },
+      width = { type = "integer", description = ("Chart width in cells, 20 to %d (default: the chart window's"
+        .. " text width, at most %d)."):format(config.max_width, config.max_width) },
+      height = { type = "integer", description = ("Plot height in rows, 1 to 40, for column, stacked_column,"
+        .. " line and scatter (default %d)."):format(config.height) },
+      split = { type = "string", enum = { "vertical", "horizontal" }, description = "Split direction." },
     },
-    unit = { type = "string", description = "Unit suffix for printed values, e.g. 'ms', 'KB', '%'." },
-    x_unit = { type = "string", description = "scatter only: unit suffix for the x axis ends." },
-    sort = { type = "string", enum = { "none", "asc", "desc" },
-      description = "Sort labels by the first series, or by the row total for stacked kinds;"
-        .. " not for histogram or scatter." },
-    bins = { type = "integer", description = "Histogram bin count (default 10)." },
-    width = { type = "integer", description = "Chart width in cells (default config.max_width)." },
-    height = { type = "integer", description = "Plot height in rows for column, line and scatter (default 8)." },
-    split = { type = "string", enum = { "vertical", "horizontal" }, description = "Split direction." },
-  },
-  required = { "kind", "series" },
-}
+    required = { "kind", "series" },
+  }
+end
 
 local TOOL_SRC = [[return function(input, ctx)
   return require("straps_chartifier").show_chart(input, ctx)
@@ -73,15 +78,22 @@ local LAYER_SRC = [[return function(opts)
   return require("straps_chartifier.prompt").LAYER
 end]]
 
-function M.register_tool(define)
+M.TOOL_SRC = TOOL_SRC
+M.tool_schema = tool_schema
+
+function M.define_tool(define, config)
   define({
     name = "tool.show_chart",
     kind = "tool",
     doc = TOOL_DOC,
-    input_schema = TOOL_SCHEMA,
+    input_schema = tool_schema(config),
     capability = "read",
     source = TOOL_SRC,
   })
+end
+
+function M.register_tool(define, config)
+  M.define_tool(define, config)
   define({
     name = "fn.chartifier_render",
     kind = "fn",

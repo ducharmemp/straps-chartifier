@@ -36,6 +36,16 @@ describe("register before straps setup", function()
     assert.is_nil(registry.get("fn.system_prompt_layer.chartifier"))
     assert.equals("not registered: straps setup() has not run", chartifier.status().prompt_layer)
   end)
+
+  it("setup() warns with the reason when the layer cannot register", function()
+    local seen = {}
+    local orig = vim.notify
+    vim.notify = function(msg, level) seen[#seen + 1] = { msg, level } end
+    chartifier.setup({})
+    vim.notify = orig
+    assert.same({ { "straps_chartifier: prompt layer not registered: straps setup() has not run",
+      vim.log.levels.WARN } }, seen)
+  end)
 end)
 
 describe("register after straps setup", function()

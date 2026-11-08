@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    straps.url = "git+ssh://git@github.com/ducharmemp/straps";
+    straps.url = "git+https://github.com/ducharmemp/straps";
     straps.inputs.nixpkgs.follows = "nixpkgs";
   };
 

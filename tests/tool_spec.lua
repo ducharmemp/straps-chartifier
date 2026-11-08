@@ -53,7 +53,7 @@ describe("permissions", function()
     assert.equals("read", registry.call("fn.capability", "show_chart", INPUT))
     assert.is_true(registry.call("fn.readonly_policy", "show_chart", INPUT))
     assert.is_true(registry.call("hook.confirm", "show_chart", INPUT, {}))
-    assert.equals("other", registry.call("fn.capability", "show_chart_missing", INPUT))
+    assert.equals("agent_tool", registry.call("fn.capability", "show_chart_missing", INPUT))
   end)
 end)
 
@@ -63,7 +63,7 @@ describe("tool.show_chart", function()
   it("opens a chart split and reports kind, title, counts and lines", function()
     local before = #chart_wins()
     local result = registry.call("tool.show_chart", INPUT)
-    assert.equals("show_chart: opened a bar chart — Hits (2 labels, 1 series, 3 lines)", result)
+    assert.equals("opened a bar chart — Hits (2 labels, 1 series, 3 lines)", result)
     assert.equals(before + 1, #chart_wins())
     local b = vim.api.nvim_win_get_buf(chart_wins()[1])
     local lines = vim.api.nvim_buf_get_lines(b, 0, -1, false)
@@ -75,13 +75,13 @@ describe("tool.show_chart", function()
   it("reports histogram bins and omits the title segment when there is none", function()
     local result = registry.call("tool.show_chart",
       { kind = "histogram", bins = 3, series = { { values = { 1, 2, 3 } } } })
-    assert.equals("show_chart: opened a histogram chart (3 bins, 1 series, 3 lines)", result)
+    assert.equals("opened a histogram chart (3 bins, 1 series, 3 lines)", result)
   end)
 
   it("reports scatter points across series", function()
     local result = registry.call("tool.show_chart", { kind = "scatter", height = 2,
       series = { { x = { 1, 2 }, values = { 1, 2 } }, { x = { 3 }, values = { 3 } } } })
-    assert.equals("show_chart: opened a scatter chart (3 points, 2 series, 5 lines)", result)
+    assert.equals("opened a scatter chart (3 points, 2 series, 5 lines)", result)
   end)
 
   it("returns an error string for bad input and opens nothing", function()
@@ -132,7 +132,7 @@ describe("tool.show_chart", function()
       source = [[return function(spec) return { lines = { "custom " .. spec.kind }, spans = {} } end]],
     }, { scope = "global" })
     local result = registry.call("tool.show_chart", INPUT)
-    assert.equals("show_chart: opened a bar chart — Hits (2 labels, 1 series, 1 lines)", result)
+    assert.equals("opened a bar chart — Hits (2 labels, 1 series, 1 lines)", result)
     local b = vim.api.nvim_win_get_buf(chart_wins()[1])
     assert.same({ "custom bar" }, vim.api.nvim_buf_get_lines(b, 0, -1, false))
     registry.define({
@@ -148,6 +148,98 @@ describe("tool.show_chart", function()
       kind = "fn",
       source = [[return function(spec) return require("straps_chartifier.render").render(spec) end]],
     }, { scope = "global" })
+  end)
+end)
+
+describe("chart window", function()
+  after_each(close_charts)
+
+  it("defaults width to the chart window's text width when it is narrower than max_width", function()
+    local result = registry.call("tool.show_chart", { kind = "bar", labels = { "a", "b" },
+      series = { { values = { 3, 1 } } } })
+    assert.is_nil(result:find("clamped", 1, true))
+    local w = chart_wins()[1]
+    local info = vim.fn.getwininfo(w)[1]
+    local textw = info.width - info.textoff
+    assert.is_true(textw < chartifier.config.max_width)
+    local lines = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(w), 0, -1, false)
+    assert.equals(textw, vim.fn.strdisplaywidth(lines[1]))
+  end)
+
+  it("appends clamp notes to the result", function()
+    local result = registry.call("tool.show_chart", vim.tbl_extend("force", INPUT, { width = 500, height = 0 }))
+    assert.matches("; width clamped to 100; height clamped to 1$", result)
+    result = registry.call("tool.show_chart", vim.tbl_extend("force", INPUT, { width = 30, height = 4 }))
+    assert.is_nil(result:find("clamped", 1, true))
+  end)
+
+  it("reuses the window already showing a chart", function()
+    registry.call("tool.show_chart", INPUT)
+    local first = chart_wins()[1]
+    local first_buf = vim.api.nvim_win_get_buf(first)
+    local wins = #vim.api.nvim_list_wins()
+    registry.call("tool.show_chart", vim.tbl_extend("force", INPUT, { title = "Second" }))
+    assert.same({ first }, chart_wins())
+    assert.equals(wins, #vim.api.nvim_list_wins())
+    assert.equals("Second", vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(first), 0, 1, false)[1])
+    assert.is_false(vim.api.nvim_buf_is_valid(first_buf))
+  end)
+
+  it("escapes % in the winbar title", function()
+    registry.call("tool.show_chart", vim.tbl_extend("force", INPUT, { title = "50% done" }))
+    assert.equals("50%% done", vim.wo[chart_wins()[1]].winbar)
+  end)
+
+  it("reports a buffer name collision instead of opening an unnamed chart", function()
+    local blocker = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_buf_set_name(blocker, "straps://chart/Taken")
+    local result = registry.call("tool.show_chart", vim.tbl_extend("force", INPUT, { title = "Taken" }))
+    assert.matches("^show_chart: cannot name the chart buffer straps://chart/Taken", result)
+    assert.equals(0, #chart_wins())
+    vim.api.nvim_buf_delete(blocker, { force = true })
+  end)
+end)
+
+describe("status and setup", function()
+  it("reports the layer disabled when prompt_layer is false even after registration", function()
+    assert.equals("registered", chartifier.status().prompt_layer)
+    chartifier.config.prompt_layer = false
+    assert.equals("disabled by config.prompt_layer", chartifier.status().prompt_layer)
+    chartifier.config.prompt_layer = true
+  end)
+
+  it("puts the configured defaults into the width and height descriptions", function()
+    local props = registry.get("tool.show_chart").input_schema.properties
+    assert.matches("at most 100%)", props.width.description)
+    assert.matches("%(default 8%)", props.height.description)
+    chartifier.setup({ max_width = 90, height = 12 })
+    props = registry.get("tool.show_chart").input_schema.properties
+    assert.matches("20 to 90 ", props.width.description)
+    assert.matches("%(default 12%)", props.height.description)
+    chartifier.setup({ max_width = 100, height = 8 })
+  end)
+
+  it("names exactly the kinds whose output depends on height in the height description", function()
+    local render = require("straps_chartifier.render")
+    local schema = registry.get("tool.show_chart").input_schema.properties
+    local function lines_for(kind, height)
+      local input = { kind = kind, labels = { "a", "b" }, series = { { values = { 1, 2 } } }, height = height }
+      if kind == "histogram" then input.labels = nil end
+      if kind == "scatter" then input.labels, input.series = nil, { { x = { 1, 2 }, values = { 1, 2 } } } end
+      return #render.render(assert(render.normalize(input, chartifier.config))).lines
+    end
+    local uses, described = {}, {}
+    for _, kind in ipairs(schema.kind.enum) do
+      if lines_for(kind, 2) ~= lines_for(kind, 5) then uses[#uses + 1] = kind end
+      if schema.height.description:find("[ ,]" .. kind .. "[ ,]") then described[#described + 1] = kind end
+    end
+    assert.same({ "column", "stacked_column", "line", "scatter" }, uses)
+    assert.same(uses, described)
+    local readme = table.concat(vim.fn.readfile(H.root .. "/README.md"), "\n")
+    local row = readme:match("\n| `height` |[^\n]*")
+    for _, kind in ipairs(schema.kind.enum) do
+      assert.equals(vim.tbl_contains(uses, kind), row:find("`" .. kind .. "`", 1, true) ~= nil, kind)
+    end
   end)
 end)
 

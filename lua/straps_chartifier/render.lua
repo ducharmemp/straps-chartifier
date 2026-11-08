@@ -133,7 +133,15 @@ function M.normalize(input, config)
     width = clamp_int(input.width, 20, config.max_width or 100, config.max_width or 100),
     height = clamp_int(input.height, 1, 40, config.height or 8),
     split = (input.split == "vertical" or input.split == "horizontal") and input.split or nil,
+    width_given = type(input.width) == "number" and input.width == input.width,
+    notes = {},
   }
+  for _, key in ipairs({ "width", "height" }) do
+    local v = input[key]
+    if type(v) == "number" and v == v and math.floor(v) ~= spec[key] then
+      spec.notes[#spec.notes + 1] = ("%s clamped to %d"):format(key, spec[key])
+    end
+  end
   if input.split ~= nil and spec.split == nil then
     return nil, "split must be \"vertical\" or \"horizontal\""
   end

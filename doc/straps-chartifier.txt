@@ -1,0 +1,36 @@
+*straps-chartifier.txt* Charts for Straps agents
+
+*straps-chartifier* *straps-chartifier-setup*
+After installing Straps and this plugin on runtimepath: >lua
+  require("straps").setup()
+  require("straps_chartifier").setup({ split = "vertical" })
+<
+The Lua module keeps its underscore name. setup(opts) returns the module.
+Unknown keys and invalid types raise errors before configuration changes.
+Options: max_width (integer >= 20, default 100), height (integer 1..40,
+default 8), max_bars (integer >= 1, default 60), highlight (boolean, true),
+prompt_layer (boolean, true), split (vertical or horizontal, vertical).
+Call setup after Straps setup so the prompt section registers after core layers.
+
+*straps-chartifier-commands*
+This plugin defines no Ex commands. Use the agent tool or Lua show_chart().
+Chart buffers use the strapschart filetype and replace a chart in the current tab.
+
+*straps-chartifier-tools* *tool.show_chart*
+show_chart{ kind, labels?, series, title?, unit?, x_unit?, sort?, bins?,
+            width?, height?, split? }
+series contains {name?, values, x?} records. Most kinds require one label per
+value. scatter needs x per value; histogram takes one series of raw samples.
+Kinds: bar, stacked, diverging, column, stacked_column, line, scatter,
+sparkline, histogram. bar, stacked, column and stacked_column require
+nonnegative values. diverging takes one series. Other kinds allow signed values.
+width clamps to 20..max_width; height clamps to 1..40. The tool uses the read
+capability. Invalid input returns "show_chart: <reason>" without drawing.
+fn.chartifier_render, fn.system_prompt_layer.chartifier and skill.charting
+are registered defaults; user redefinitions remain in effect.
+
+*straps-chartifier-status*
+require("straps_chartifier").status() returns tool, prompt_layer and config.
+:checkhealth straps_chartifier reports registration and prompt-layer status.
+
+vim:tw=78:ts=8:ft=help:norl:

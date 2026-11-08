@@ -58,8 +58,9 @@ Inputs the chart needs to read well:
 - unit: pass it once ("ms", "KB", "%"); every printed number carries it. Do not put units into labels or
   series names.
 - series names: name every series when there are two or more; the legend prints them.
-- width and height: the defaults fit a vertical split. Raise height for line charts with many points,
-  lower width for a horizontal split beside a narrow window.
+- width and height: width defaults to the chart window's text width, capped at max_width, so omit it unless
+  the chart should be narrower. Raise height for line and scatter charts with many points. A clamped value
+  is reported at the end of the result.
 
 What goes in the reply next to the chart: the conclusion and the one or two numbers it rests on
 ("parse() takes 68% of the run; the chart ranks the rest"). Do not transcribe the chart into prose.
